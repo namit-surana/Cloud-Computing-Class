@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-prometheus-kube-prometheus-alertmanager
+  namespace: monitoring
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'https://hooks.slack.com/services/YOUR_SLACK_WEBHOOK_URL'
+
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 3m
+      receiver: 'slack-notifications'
+
+    receivers:
+      - name: 'slack-notifications'
+        slack_configs:
+          - channel: '#alerts'
+            send_resolved: true
+            icon_emoji: ':warning:'
+            title: '{{ if eq .Status "firing" }}:red_circle: ALERT FIRING{{ else }}:green_circle: ALERT RESOLVED{{ end }}: {{ .CommonLabels.alertname }}'
+            text: |
+              *Severity:* {{ .CommonLabels.severity }}
+              *Namespace:* {{ .CommonLabels.namespace }}
+              *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+              *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}

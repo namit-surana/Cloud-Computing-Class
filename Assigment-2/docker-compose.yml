@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build: .
+    container_name: flask-todo
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/tododb
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:6.0
+    container_name: mongo-todo
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

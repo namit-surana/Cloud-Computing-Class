@@ -1,0 +1,8 @@
+*.pdf
+k8s/
+docker-compose.yml
+.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+.git/

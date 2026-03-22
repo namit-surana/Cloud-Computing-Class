@@ -1,0 +1,46 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: todo-app-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: todo-app.rules
+      rules:
+        - alert: PodDown
+          expr: kube_pod_status_ready{namespace="default", condition="true"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not ready"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been down for more than 30 seconds."
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{namespace="default"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Pod {{ $labels.pod }} is restarting frequently in namespace {{ $labels.namespace }}."
+
+        - alert: HighPodRestarts
+          expr: kube_pod_container_status_restarts_total{namespace="default"} > 3
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} has restarted more than 3 times"
+            description: "Pod {{ $labels.pod }} restart count is {{ $value }} in namespace {{ $labels.namespace }}."
+
+        - alert: DeploymentReplicasMismatch
+          expr: kube_deployment_spec_replicas{namespace="default"} != kube_deployment_status_available_replicas{namespace="default"}
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has mismatched replicas"
+            description: "Deployment {{ $labels.deployment }} expected replicas do not match available replicas."
