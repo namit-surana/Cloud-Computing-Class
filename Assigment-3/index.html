@@ -1,0 +1,354 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Photo Search</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #5d677a;
+      --border: #d9e1ef;
+      --primary: #2f64ff;
+      --ok: #067647;
+      --err: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 14px;
+    }
+
+    h1 { margin-bottom: 6px; }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 0;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .inline {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input, button {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    input[type="text"], input[type="search"] {
+      min-width: 320px;
+      flex: 1;
+    }
+
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: 1px solid var(--primary);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin: 14px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+    }
+
+    .status.ok {
+      color: var(--ok);
+      border-color: #a6f4c5;
+      background: #ecfdf3;
+    }
+
+    .status.err {
+      color: var(--err);
+      border-color: #fecdca;
+      background: #fef3f2;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+
+    .result-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .result-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #f1f3f8;
+    }
+
+    .result-body {
+      padding: 10px;
+    }
+
+    .labels {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .open-link {
+      font-size: 13px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>AI Photo Search</h1>
+  <p class="subtitle">Search by labels and upload photos with optional custom labels.</p>
+
+  <div class="card">
+    <h3>Search Photos</h3>
+    <div class="inline">
+      <input id="searchText" type="search" placeholder="e.g. person, sam, cats and dogs" />
+      <button id="searchBtn" onclick="searchPhotos()">Search</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Upload Photo</h3>
+    <div class="inline">
+      <input type="file" id="photoFile" accept="image/*" />
+    </div>
+
+    <div class="inline" style="margin-top:8px;">
+      <input id="customLabels" type="text" placeholder="custom labels comma separated, e.g. sam,sally" />
+      <button id="uploadBtn" onclick="uploadPhoto()">Upload</button>
+    </div>
+
+    <div class="small">Upload uses API PUT endpoint and triggers indexing automatically.</div>
+  </div>
+
+  <div id="status" class="status">Ready.</div>
+  <div id="results" class="grid"></div>
+
+<script>
+const API_BASE = "https://059aw0y73h.execute-api.us-east-1.amazonaws.com/prod";
+const API_KEY = "HcMLckAtNs31keUdshNjD9Ww2Iur5BYj796hSTwe";
+
+const statusEl = document.getElementById("status");
+const resultsEl = document.getElementById("results");
+const searchBtn = document.getElementById("searchBtn");
+const uploadBtn = document.getElementById("uploadBtn");
+
+function setStatus(msg, kind = "") {
+  statusEl.className = `status ${kind}`.trim();
+  statusEl.innerText = msg;
+}
+
+function setLoading(button, loading) {
+  button.disabled = loading;
+
+  if (button === searchBtn) {
+    button.innerText = loading ? "Searching..." : "Search";
+  }
+
+  if (button === uploadBtn) {
+    button.innerText = loading ? "Uploading..." : "Upload";
+  }
+}
+
+function getImageUrl(item) {
+  return item.signedUrl || item.presignedUrl || item.imageUrl || item.url || "";
+}
+
+function renderResults(results) {
+  resultsEl.innerHTML = "";
+
+  if (!results.length) {
+    setStatus("Done. Found 0 result(s).", "ok");
+    return;
+  }
+
+  results.forEach((item) => {
+    console.log("Search result item:", item);
+
+    const imageUrl = getImageUrl(item);
+
+    const wrap = document.createElement("div");
+    wrap.className = "result-card";
+
+    const img = document.createElement("img");
+    img.alt = "photo result";
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+
+    if (imageUrl) {
+      img.src = imageUrl;
+    }
+
+    img.onerror = () => {
+      console.error("Image failed to load:", imageUrl);
+      img.alt = "Image failed to load";
+    };
+
+    const body = document.createElement("div");
+    body.className = "result-body";
+
+    const labels = document.createElement("div");
+    labels.className = "labels";
+    labels.innerHTML = `<b>Labels:</b> ${(item.labels || []).join(", ")}`;
+
+    body.appendChild(labels);
+
+    if (imageUrl) {
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "open-link";
+      link.innerText = "Open image in new tab";
+      body.appendChild(link);
+    }
+
+    wrap.appendChild(img);
+    wrap.appendChild(body);
+    resultsEl.appendChild(wrap);
+  });
+}
+
+async function searchPhotos() {
+  const q = document.getElementById("searchText").value.trim();
+
+  if (!q) {
+    setStatus("Enter search text.", "err");
+    return;
+  }
+
+  setLoading(searchBtn, true);
+  setStatus("Searching...");
+
+  try {
+    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`, {
+      method: "GET",
+      headers: {
+        "x-api-key": API_KEY
+      }
+    });
+
+    const data = await res.json();
+
+    console.log("Search API response:", data);
+
+    if (!res.ok) {
+      setStatus(`Search failed: ${JSON.stringify(data)}`, "err");
+      return;
+    }
+
+    const results = data.results || [];
+    renderResults(results);
+
+    setStatus(`Done. Found ${results.length} result(s).`, "ok");
+
+  } catch (err) {
+    console.error(err);
+    setStatus(`Search request failed: ${err.message}`, "err");
+
+  } finally {
+    setLoading(searchBtn, false);
+  }
+}
+
+async function uploadPhoto() {
+  const file = document.getElementById("photoFile").files[0];
+
+  if (!file) {
+    setStatus("Choose a file first.", "err");
+    return;
+  }
+
+  const labels = document.getElementById("customLabels").value.trim();
+
+  setLoading(uploadBtn, true);
+  setStatus("Uploading...");
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+
+    const res = await fetch(`${API_BASE}?filename=${encodeURIComponent(file.name)}`, {
+      method: "PUT",
+      headers: {
+        "x-api-key": API_KEY,
+        "Content-Type": file.type || "image/jpeg",
+        "x-amz-meta-customLabels": labels
+      },
+      body: arrayBuffer
+    });
+
+    const data = await res.json();
+
+    console.log("Upload API response:", data);
+
+    if (!res.ok) {
+      setStatus(`Upload failed: ${JSON.stringify(data)}`, "err");
+      return;
+    }
+
+    setStatus(`Uploaded: ${data.key}. Wait a few seconds, then search.`, "ok");
+
+  } catch (err) {
+    console.error(err);
+    setStatus(`Upload request failed: ${err.message}`, "err");
+
+  } finally {
+    setLoading(uploadBtn, false);
+  }
+}
+
+document.getElementById("searchText").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    searchPhotos();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Assignment 3 minimal CloudFormation stack
+
+Parameters:
+  FrontendBucketName:
+    Type: String
+    Default: b1-namit-a3-frontend-cfn
+  PhotosBucketName:
+    Type: String
+    Default: b2-namit-a3-photos-cfn
+
+Resources:
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref FrontendBucketName
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  PhotosBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref PhotosBucketName
+
+  LambdaBasicRoleIndex:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  LambdaBasicRoleSearch:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  IndexPhotosLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: index-photos-cfn
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaBasicRoleIndex.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "index-photos-cfn"}
+
+  SearchPhotosLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: search-photos-cfn
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaBasicRoleSearch.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "search-photos-cfn"}
+
+  PhotoApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: photo-album-api-cfn
+
+Outputs:
+  FrontendWebsiteURL:
+    Description: Public S3 website URL
+    Value: !GetAtt FrontendBucket.WebsiteURL
+  PhotosBucketOutput:
+    Description: Photos bucket name
+    Value: !Ref PhotosBucket

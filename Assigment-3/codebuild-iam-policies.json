@@ -1,0 +1,51 @@
+{
+  "backendCodeBuildPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "UpdateLambdaCode",
+        "Effect": "Allow",
+        "Action": [
+          "lambda:UpdateFunctionCode"
+        ],
+        "Resource": [
+          "arn:aws:lambda:us-east-1:315608486529:function:index-photos",
+          "arn:aws:lambda:us-east-1:315608486529:function:search-photos"
+        ]
+      },
+      {
+        "Sid": "BuildLogs",
+        "Effect": "Allow",
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "*"
+      }
+    ]
+  },
+  "frontendCodeBuildPolicy": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "UploadFrontendToS3",
+        "Effect": "Allow",
+        "Action": [
+          "s3:PutObject"
+        ],
+        "Resource": "arn:aws:s3:::b1-namit-a3-frontend/*"
+      },
+      {
+        "Sid": "BuildLogs",
+        "Effect": "Allow",
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }
+}

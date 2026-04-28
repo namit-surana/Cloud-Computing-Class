@@ -1,0 +1,11 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Uploading frontend to S3 static website bucket..."
+      - aws s3 cp index.html s3://b1-namit-a3-frontend/index.html
+
+artifacts:
+  files:
+    - index.html
